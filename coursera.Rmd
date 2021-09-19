@@ -1,0 +1,91 @@
+---
+title: "Prediction Assignment"
+author: "Zhiwei Xu"
+date: "9/18/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(tidyr)
+library(caret)
+```
+
+## Prediction Assignment
+
+Steps:
+
+1. Read in train, test dataset
+2. Exploratory analysis
+3. Preprocessing: 
+  + Convert classe to factor variable
+  + Remove those columns that are NA in test set 
+  + Remove timestamps, window indicator, X, and username as they are not informative predictors to be included in the model
+4. Modeling:
+  + rpart with CV
+    + Best model: cp = 0.0356 
+    + Model accuracy: 0.5066
+    + Predict result: C A C A A C C A A A C C C A C A A A A C
+  + Random Forest 
+    + Best model: mtry = 27
+    + Model accuracy: 0.9927 
+    + Predict result: B A B A A E D B A A B C B A E E A B B B
+  + GBM
+    + Best model: shrinkage = 0.1, n.trees = 150, interaction.depth = 3, n.minobsinnode = 10
+    + Model accuracy: 0.9598
+    + Predict result: B A B A A E D B A A B C B A E E A B B B
+5. Result:
+  Confirm the predict results from RF and GBM by inputing them into the Course Project Prediction Quiz and get 100% accuracy rate
+  
+```{r}
+##Import train set and test set
+train <- read.csv("C:\\Users\\xuzhi\\Downloads\\pml-training.csv")
+test <- read.csv("C:\\Users\\xuzhi\\Downloads\\pml-testing.csv")
+
+##Preprocessing
+#Convert a few vars to factors
+train$new_window <- as.factor(train$new_window)
+train$user_name <- as.factor(train$user_name)
+train$classe <- as.factor(train$classe)
+
+##Exploratory analysis
+#summary(train)
+#str(train)
+  #num_window (1~864)
+  #cvtd_timestamp 28/11/2011 14:15 ~ 	02/12/2011 13:35
+  # adelmo carlitos  charles   eurico   jeremy    pedro 
+  #   3892     3112     3536     3070     3402     2610
+
+#Select the NA columns in test, these columns should not be included in the predictors 
+na_count <-sapply(test, function(y) sum(length(which(is.na(y)))))
+na_count <- data.frame(na_count)
+na_columns <- rownames(na_count%>%filter(na_count==20))
+train <- train[, -which(names(train) %in% na_columns)]
+#remove timestamp, window indicator, X, username
+train <- train[, -which(names(train) %in% c("raw_timestamp_part_1","raw_timestamp_part_2","cvtd_timestamp","new_window","num_window","X","user_name"))]
+  
+##Covariant creation
+#Don't see the need
+
+##Modeling
+#Regression
+#Tree
+train_control<- trainControl(method="cv", number=10)
+rpart_mod <- train(classe ~ ., method="rpart", trControl=train_control, data=train)
+plot(rpart_mod$finalModel)
+text(rpart_mod$finalModel)
+pred_rpart <- predict(rpart_mod,test)
+#Bagging
+#RF
+rf_mod <- train(classe ~ ., method="rf", data=train)
+pred_rf <- predict(rf_mod,test)
+#Boosting
+gbm_mod <- train(classe ~ ., method="gbm", data=train)
+pred_gbm <- predict(gbm_mod,test)
+
+#
+pred_rpart
+pred_rf
+pred_gbm
+```
